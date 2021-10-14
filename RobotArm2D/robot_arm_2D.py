@@ -246,7 +246,7 @@ class DrawRobot(QWidget):
 
         # Create a rotation matrix to rotate the forearm around the origin of the upper-arm frame 
         # Translate from upper-arm frame to world frame
-        upper_arm_Ti = self.translation_matrix(0,-0.5)               
+        upper_arm_Ti = np.linalg.inv(upper_arm_T)         
         # Rotate in world frame. The angles are in world frame.
         # By subtracting shoulder (upper-arm) angle in world frame from elbow (fore-arm) angle in world frame, we can find elbow angle in upper-arm frame.
         forearm_R = self.rotation_matrix(ang_elbow - ang_shoulder)   
@@ -257,6 +257,14 @@ class DrawRobot(QWidget):
         # Combine rotation and translation with world->upper-arm transformation to get from world frame to fore-arm frame
         chain_mat = forearm_T @ rotate_forearm_around_point @ chain_mat
         mat_ret['forearm'] = np.copy(chain_mat)
+
+        # Create a rotation matrix to rotate the wrist around the origin of the fore-arm frame
+        wrist_R = self.rotation_matrix(ang_wrist - ang_elbow)
+        rotate_wrist_around_forearm = chain_mat @ wrist_R @ np.linalg.inv(chain_mat)
+        # Create a translation matrix to translate the wrist from fore-arm frame to wrist frame
+        wrist_T = self.translation_matrix(len_forearm * np.cos(ang_elbow), len_forearm * np.sin(ang_elbow))
+        chain_mat = wrist_T @ rotate_wrist_around_forearm @ chain_mat
+        mat_ret['wrist'] = np.copy(chain_mat)
 
         # end homework 1 : Problem 2
         return mat_ret
@@ -303,7 +311,6 @@ class DrawRobot(QWidget):
             #   getting the translation matrix for upper arm: matrices['upperarm' + '_T']
         mat_ret = self.get_matrices()
         for comp in self.components:
-            # transformation_matrix = mat_ret[comp+'_T'] @ mat_ret[comp+'_R']
             rect_transform = self.transform_rect(rects[comp], mat_ret[comp])
             self.draw_rect(rect_transform, qp)
         # end homework 1 : Problem 2
