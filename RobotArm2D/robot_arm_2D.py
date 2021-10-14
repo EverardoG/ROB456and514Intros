@@ -244,19 +244,29 @@ class DrawRobot(QWidget):
         chain_mat = upper_arm_T @ upper_arm_R
         mat_ret['upperarm'] = np.copy(chain_mat)
 
+        # return mat_ret
+
         # Create a rotation matrix to rotate the forearm around the origin of the upper-arm frame 
         # Translate from upper-arm frame to world frame
-        upper_arm_Ti = np.linalg.inv(upper_arm_T)         
+        # upper_arm_Ti = np.linalg.inv(upper_arm_T)         
         # Rotate in world frame. The angles are in world frame.
         # By subtracting shoulder (upper-arm) angle in world frame from elbow (fore-arm) angle in world frame, we can find elbow angle in upper-arm frame.
+
         forearm_R = self.rotation_matrix(ang_elbow - ang_shoulder)   
+
         # Combine matricies such that we translate to the world-frame origin, perform the rotation in world-frame, and translate back to upper-arm frame
-        rotate_forearm_around_point = upper_arm_T @ forearm_R @ upper_arm_Ti
+        # rotate_forearm_around_point = upper_arm_T @ forearm_R @ upper_arm_Ti
         # Create a translation matrix in world-frame coordinates that translates from upper-arm frame to fore-arm frame
-        forearm_T = self.translation_matrix( len_upper_arm * np.cos(ang_shoulder), len_upper_arm * np.sin(ang_shoulder) )
+
+        forearm_T = self.translation_matrix( len_upper_arm, 0 )
+
         # Combine rotation and translation with world->upper-arm transformation to get from world frame to fore-arm frame
-        chain_mat = forearm_T @ rotate_forearm_around_point @ chain_mat
+        # chain_mat = forearm_T @ rotate_forearm_around_point @ chain_mat
+        # chain_mat = forearm_T @ forearm_R @ chain_mat
+        chain_mat = chain_mat @ forearm_T @ forearm_R
         mat_ret['forearm'] = np.copy(chain_mat)
+
+        return mat_ret
 
         # Create a rotation matrix to rotate the wrist around the origin of the fore-arm frame
         wrist_R = self.rotation_matrix(ang_wrist - ang_elbow)
