@@ -236,37 +236,27 @@ class DrawRobot(QWidget):
         # Each of these should be of the form: Translation * rotation
         mat_ret = {comp: np.identity(3) for comp in self.components}
 
+        # Create a rotation matrix for the upper arm using its angle in world frame
         upper_arm_R = self.rotation_matrix(ang_shoulder)
+        # Create a translation matrix for the upper arm using its position in world frame
         upper_arm_T = self.translation_matrix(0, 0.5)
-        # upper_arm_T = np.identity(3)
+        # Combine rotation and translation into transform from world frame to upper-arm frame
         chain_mat = upper_arm_T @ upper_arm_R
         mat_ret['upperarm'] = np.copy(chain_mat)
 
-        upper_arm_Ti = self.translation_matrix(0,-0.5)
-        forearm_R = self.rotation_matrix(ang_elbow - ang_shoulder)
-        forearm_T = self.translation_matrix( len_upper_arm * np.cos(ang_shoulder), len_upper_arm * np.sin(ang_shoulder) )
-        forearm_Ti = self.translation_matrix( -len_upper_arm * np.cos(ang_shoulder), -len_upper_arm * np.sin(ang_shoulder) )
+        # Create a rotation matrix to rotate the forearm around the origin of the upper-arm frame 
+        # Translate from upper-arm frame to world frame
+        upper_arm_Ti = self.translation_matrix(0,-0.5)               
+        # Rotate in world frame. The angles are in world frame.
+        # By subtracting shoulder (upper-arm) angle in world frame from elbow (fore-arm) angle in world frame, we can find elbow angle in upper-arm frame.
+        forearm_R = self.rotation_matrix(ang_elbow - ang_shoulder)   
+        # Combine matricies such that we translate to the world-frame origin, perform the rotation in world-frame, and translate back to upper-arm frame
         rotate_forearm_around_point = upper_arm_T @ forearm_R @ upper_arm_Ti
-        # chain_mat = upper_arm_T @ forearm_R @ upper_arm_Ti @ chain_mat
+        # Create a translation matrix in world-frame coordinates that translates from upper-arm frame to fore-arm frame
+        forearm_T = self.translation_matrix( len_upper_arm * np.cos(ang_shoulder), len_upper_arm * np.sin(ang_shoulder) )
+        # Combine rotation and translation with world->upper-arm transformation to get from world frame to fore-arm frame
         chain_mat = forearm_T @ rotate_forearm_around_point @ chain_mat
         mat_ret['forearm'] = np.copy(chain_mat)
-        # chain_mat = np.identity(3)
-        # rot_ang = 0
-        # # t_ang = None
-        # lengths = [None, len_upper_arm, len_forearm, len_wrist, len_wrist]
-        # angles = [ang_shoulder, ang_elbow, ang_wrist, ang_finger, -ang_finger]
-        # print("---")
-        # for comp, length, ang in zip(self.components, lengths, angles):
-        #     rot_ang = ang - rot_ang
-        #     if comp == 'upperarm':
-        #         t_mat = self.translation_matrix(0,0.5)
-        #     else:
-        #         t_mat = self.translation_matrix(length * np.cos(-rot_ang), length * np.sin(-rot_ang))
-        #     print(comp, rot_ang)
-        #     r_mat = self.rotation_matrix(rot_ang)
-        #     chain_mat = t_mat @ r_mat @ chain_mat
-        #     mat_ret[comp] = chain_mat
-        #     # t_ang = rot_ang
 
         # end homework 1 : Problem 2
         return mat_ret
