@@ -11,6 +11,7 @@ from random import random
 import numpy as np
 from numpy import sin, cos, pi
 
+USE_TRIG = True
 
 # A helper class that implements a slider with given start and end value; displays values
 class SliderDisplay(QWidget):
@@ -233,6 +234,40 @@ class DrawRobot(QWidget):
 
         # begin homework 1 : Problem 2
         # Each of these should be of the form: Translation * rotation
+        mat_ret = {comp: np.identity(3) for comp in self.components}
+
+        upper_arm_R = self.rotation_matrix(ang_shoulder)
+        upper_arm_T = self.translation_matrix(0, 0.5)
+        # upper_arm_T = np.identity(3)
+        chain_mat = upper_arm_T @ upper_arm_R
+        mat_ret['upperarm'] = np.copy(chain_mat)
+
+        upper_arm_Ti = self.translation_matrix(0,-0.5)
+        forearm_R = self.rotation_matrix(ang_elbow - ang_shoulder)
+        forearm_T = self.translation_matrix( len_upper_arm * np.cos(ang_shoulder), len_upper_arm * np.sin(ang_shoulder) )
+        forearm_Ti = self.translation_matrix( -len_upper_arm * np.cos(ang_shoulder), -len_upper_arm * np.sin(ang_shoulder) )
+        rotate_forearm_around_point = upper_arm_T @ forearm_R @ upper_arm_Ti
+        # chain_mat = upper_arm_T @ forearm_R @ upper_arm_Ti @ chain_mat
+        chain_mat = forearm_T @ rotate_forearm_around_point @ chain_mat
+        mat_ret['forearm'] = np.copy(chain_mat)
+        # chain_mat = np.identity(3)
+        # rot_ang = 0
+        # # t_ang = None
+        # lengths = [None, len_upper_arm, len_forearm, len_wrist, len_wrist]
+        # angles = [ang_shoulder, ang_elbow, ang_wrist, ang_finger, -ang_finger]
+        # print("---")
+        # for comp, length, ang in zip(self.components, lengths, angles):
+        #     rot_ang = ang - rot_ang
+        #     if comp == 'upperarm':
+        #         t_mat = self.translation_matrix(0,0.5)
+        #     else:
+        #         t_mat = self.translation_matrix(length * np.cos(-rot_ang), length * np.sin(-rot_ang))
+        #     print(comp, rot_ang)
+        #     r_mat = self.rotation_matrix(rot_ang)
+        #     chain_mat = t_mat @ r_mat @ chain_mat
+        #     mat_ret[comp] = chain_mat
+        #     # t_ang = rot_ang
+
         # end homework 1 : Problem 2
         return mat_ret
 
@@ -240,6 +275,24 @@ class DrawRobot(QWidget):
         """Draw the arm as boxes
         :param: qp - the painter window
         """
+        # begin homework 1: Problem 1
+        if USE_TRIG:
+            # Set up pen for drawing lines
+            pen = QPen(Qt.blue, 4, Qt.SolidLine)
+            qp.setPen(pen)
+            # Set up origin for calculations
+            origin_x = 0
+            origin_y = 0.5
+            # Calculate base x and y with trig and draw base
+            base_x = self.gui.length_upper_arm.value() * np.cos(gui.theta_base.value())
+            base_y = self.gui.length_upper_arm.value() * np.sin(gui.theta_base.value())
+            qp.drawLine(self.x_map(origin_x), self.y_map(origin_y), self.x_map(origin_x + base_x), self.y_map(origin_y + base_y))
+            # Calculate lower arm x and y with trig and draw base
+            low_x = self.gui.length_lower_arm.value() * np.cos(gui.theta_elbow.value())
+            low_y = self.gui.length_lower_arm.value() * np.sin(gui.theta_elbow.value())
+            qp.drawLine(self.x_map(origin_x + base_x), self.y_map(origin_y + base_y), self.x_map(origin_x + base_x + low_x), self.y_map(origin_y + base_y + low_y))
+        # end homework 1: Problem 1
+
         pen = QPen(Qt.black, 2, Qt.SolidLine)
         qp.setPen(pen)
 
@@ -258,10 +311,26 @@ class DrawRobot(QWidget):
         #   rect_transform = self.transform_rect(rects['base'], mat)
         #   self.draw_rect(rect_transform, qp)
             #   getting the translation matrix for upper arm: matrices['upperarm' + '_T']
+        mat_ret = self.get_matrices()
+        for comp in self.components:
+            # transformation_matrix = mat_ret[comp+'_T'] @ mat_ret[comp+'_R']
+            rect_transform = self.transform_rect(rects[comp], mat_ret[comp])
+            self.draw_rect(rect_transform, qp)
         # end homework 1 : Problem 2
 
     def arm_end_pt(self):
         """ Return the end point of the arm"""
+        # begin homework 1: Problem 1
+        if USE_TRIG:
+            # end pt x position is sum of upper arm x and lower arm x
+            end_x = self.gui.length_upper_arm.value() * np.cos(gui.theta_base.value()) + \
+                self.gui.length_lower_arm.value() * np.cos(gui.theta_elbow.value())
+            # end pt y position is sum of origin y, upper arm y, and lower arm y
+            end_y = 0.5 + self.gui.length_upper_arm.value() * np.sin(gui.theta_base.value()) + \
+                self.gui.length_lower_arm.value() * np.sin(gui.theta_elbow.value())
+            return np.array([end_x, end_y])
+        # end homework 1: Problem 1
+
         matrices = self.get_matrices()
         mat_accum = np.identity(3)
         # begin homework 1 : Problem 2 (second part)
