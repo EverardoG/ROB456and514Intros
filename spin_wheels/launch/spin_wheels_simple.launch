@@ -1,0 +1,5 @@
+<launch>
+    <env name="TURTLEBOT3_MODEL" value="burger"/>
+	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch"/>
+	<include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch"/>
+</launch>
