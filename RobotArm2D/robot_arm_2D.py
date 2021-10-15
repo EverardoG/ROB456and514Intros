@@ -11,7 +11,7 @@ from random import random
 import numpy as np
 from numpy import sin, cos, pi
 
-USE_TRIG = True
+USE_TRIG = False
 
 # A helper class that implements a slider with given start and end value; displays values
 class SliderDisplay(QWidget):
@@ -236,47 +236,33 @@ class DrawRobot(QWidget):
         # Each of these should be of the form: Translation * rotation
         mat_ret = {comp: np.identity(3) for comp in self.components}
 
-        # Create a rotation matrix for the upper arm using its angle in world frame
-        upper_arm_R = self.rotation_matrix(ang_shoulder)
-        # Create a translation matrix for the upper arm using its position in world frame
+        # Create translation and rotation matrix for upper arm in world frame
+        # Combine for transformation from world frame to upper-arm frame
         upper_arm_T = self.translation_matrix(0, 0.5)
-        # Combine rotation and translation into transform from world frame to upper-arm frame
+        upper_arm_R = self.rotation_matrix(ang_shoulder)
         chain_mat = upper_arm_T @ upper_arm_R
-        mat_ret['upperarm'] = np.copy(chain_mat)
+        mat_ret['upperarm'] = np.copy(chain_mat)      
 
-        # return mat_ret
-
-        # Create a rotation matrix to rotate the forearm around the origin of the upper-arm frame 
-        # Translate from upper-arm frame to world frame
-        # upper_arm_Ti = np.linalg.inv(upper_arm_T)         
-        # Rotate in world frame. The angles are in world frame.
-        # By subtracting shoulder (upper-arm) angle in world frame from elbow (fore-arm) angle in world frame, we can find elbow angle in upper-arm frame.
-
+        # Create translation and rotation matrix for fore-arm in upper-arm frame and combine
+        forearm_T = self.translation_matrix(len_upper_arm, 0)
         forearm_R = self.rotation_matrix(ang_elbow - ang_shoulder)   
-
-        # Combine matricies such that we translate to the world-frame origin, perform the rotation in world-frame, and translate back to upper-arm frame
-        # rotate_forearm_around_point = upper_arm_T @ forearm_R @ upper_arm_Ti
-        # Create a translation matrix in world-frame coordinates that translates from upper-arm frame to fore-arm frame
-
-        forearm_T = self.translation_matrix( len_upper_arm, 0 )
-
-        # Combine rotation and translation with world->upper-arm transformation to get from world frame to fore-arm frame
-        # chain_mat = forearm_T @ rotate_forearm_around_point @ chain_mat
-        # chain_mat = forearm_T @ forearm_R @ chain_mat
         chain_mat = chain_mat @ forearm_T @ forearm_R
         mat_ret['forearm'] = np.copy(chain_mat)
 
-        return mat_ret
-
-        # Create a rotation matrix to rotate the wrist around the origin of the fore-arm frame
-        wrist_R = self.rotation_matrix(ang_wrist - ang_elbow)
-        rotate_wrist_around_forearm = chain_mat @ wrist_R @ np.linalg.inv(chain_mat)
-        # Create a translation matrix to translate the wrist from fore-arm frame to wrist frame
-        wrist_T = self.translation_matrix(len_forearm * np.cos(ang_elbow), len_forearm * np.sin(ang_elbow))
-        chain_mat = wrist_T @ rotate_wrist_around_forearm @ chain_mat
+        # Create translation and rotation matrix for wrist in fore-arm frame and combine
+        wrist_T = self.translation_matrix(len_forearm, 0)
+        wrist_R = self.rotation_matrix(ang_wrist)
+        chain_mat = chain_mat @ wrist_T @ wrist_R
         mat_ret['wrist'] = np.copy(chain_mat)
 
+        # Create translation and rotation matrix for fingers and apply
+        finger_T = self.translation_matrix(len_wrist, 0)
+        finger1_R = self.rotation_matrix(ang_finger)
+        finger2_R = self.rotation_matrix(-ang_finger)
+        mat_ret['finger1'] = chain_mat @ finger1_R @ finger_T
+        mat_ret['finger2'] = chain_mat @ finger2_R @ finger_T
         # end homework 1 : Problem 2
+
         return mat_ret
 
     def draw_arm(self, qp):
@@ -337,13 +323,14 @@ class DrawRobot(QWidget):
                 self.gui.length_lower_arm.value() * np.sin(gui.theta_elbow.value())
             return np.array([end_x, end_y])
         # end homework 1: Problem 1
-
-        matrices = self.get_matrices()
-        mat_accum = np.identity(3)
         # begin homework 1 : Problem 2 (second part)
+        else:
+            matrices = self.get_matrices()
+            mat_accum = np.identity(3)
+            mat_accum = mat_accum @ matrices['wrist']
         # end homework 1 : Problem 2 (second part)
-        pt_end = mat_accum[0:2, 2]
-        return pt_end
+            pt_end = mat_accum[0:2, 2]
+            return pt_end
 
 
 class RobotArmGUI(QMainWindow):
