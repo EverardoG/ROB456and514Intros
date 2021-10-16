@@ -88,9 +88,9 @@ def calculate_collision_points(points: np.ndarray)->np.ndarray:
     # y collision is set such that robot will detect an emminent collision if there are any points within collision_y
     # on either the left OR right side
     robot_width = .306
-    extra_spacing_x = 0.05
+    extra_spacing_y = 0.05
     collision_x = 2
-    collision_y = robot_width/2 + extra_spacing_x
+    collision_y = robot_width/2 + extra_spacing_y
 
     # Create boolean masks that have True where there is a collision and False 
     # where there is no collision. Use that to grab only points that cause collisions
