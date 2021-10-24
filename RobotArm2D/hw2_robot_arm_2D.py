@@ -512,33 +512,6 @@ class RobotArmGUI(QMainWindow):
 
     def reach_jacobian(self):
         """ Use the Jacobian to calculate the desired angle change"""
-        """
-        # An example problem of an arm with radius 3 currently at angle theta
-        radius = 3
-        theta = 0.2
-        # Vector to the end point
-        r = [radius * cos(theta), radius * sin(theta), 0]
-        print("r\n",r)
-        # Spin around z
-        omega_hat = [0, 0, 1]
-        # always 0 in 3rd component
-        omega_cross_r = np.cross(omega_hat, r)
-        print("omega_cross_r\n", omega_cross_r)
-        # Desired x,y change
-        dx_dy = np.zeros([2, 1])
-        dx_dy[0, 0] = -0.01
-        dx_dy[1, 0] = -0.1
-        # Jacobian
-        J = np.zeros([2, 1])
-        J[0:2, 0] = np.transpose(omega_cross_r[0:2])
-        # Solve
-        d_ang = np.linalg.lstsq(J, dx_dy, rcond=None)[0]
-        # Check result of solve - should be the same as dx_dy
-        res = J @ d_ang
-        # The actual point you end up at if you change the angle by that much
-        pt_new = [radius * cos(theta + d_ang), radius * sin(theta + d_ang)]
-        """
-
         # begin homework 2 : Problem 2
         print("reach_jacobian()")
         # Compute and apply jacobians, implementing a binary search for the best 
@@ -561,7 +534,7 @@ class RobotArmGUI(QMainWindow):
         max_depth_hit = False
         depth = 0
         max_depth = 10
-        while not found_better_solution and not max_depth_hit:
+        while not max_depth_hit:
             print(depth, dt)
             # ---- Compute and apply Jacobians using dt
             # Get the delta position
