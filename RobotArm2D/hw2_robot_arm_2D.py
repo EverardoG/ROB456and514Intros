@@ -540,7 +540,7 @@ class RobotArmGUI(QMainWindow):
         """
 
         # begin homework 2 : Problem 2
-        print("reach_jacobian")
+        print("reach_jacobian()")
         # Compute and apply jacobians, implementing a binary search for the best 
         # dt value
 
@@ -548,17 +548,23 @@ class RobotArmGUI(QMainWindow):
         curr_base_angle = self.robot_arm.gui.theta_base.value()
         curr_forearm_angle = self.robot_arm.gui.theta_elbow.value()
         curr_wrist_angle = self.robot_arm.gui.theta_wrist.value()
+        
+        reach_pt = np.array([self.reach_x.value(), self.reach_y.value()])
+        best_dist = np.linalg.norm(reach_pt - self.robot_arm.arm_end_pt())
+        best_angles = (curr_base_angle, curr_forearm_angle, curr_wrist_angle)
+
+        print("start angles:\n", best_angles)
 
         dt = 1
         last_dt = None
-        best_dist = None
-        best_angles = None
-        # Only go 10 steps deep into a binary search
-        for i in range(1):
-            print(i, dt)
+        found_better_solution = False
+        max_depth_hit = False
+        depth = 0
+        max_depth = 10
+        while not found_better_solution and not max_depth_hit:
+            print(depth, dt)
             # ---- Compute and apply Jacobians using dt
             # Get the delta position
-            reach_pt = np.array([self.reach_x.value(), self.reach_y.value()])
             end_pt = self.robot_arm.arm_end_pt()
             d_pos = reach_pt - end_pt
             # and set up omega hat
@@ -596,35 +602,44 @@ class RobotArmGUI(QMainWindow):
 
             # ---- Determine if the new end point position is closer to the reach point
             new_dist = np.linalg.norm(reach_pt - self.robot_arm.arm_end_pt())
-            if best_dist is None or new_dist < best_dist:
+            if new_dist < best_dist:
                 best_dist = new_dist
                 best_angles = (
                     self.robot_arm.gui.theta_base.value(),
                     self.robot_arm.gui.theta_elbow.value(),
                     self.robot_arm.gui.theta_wrist.value()
                 )
+                found_better_solution = True
             
             # ---- Increment dt based on whether new_dist was better or worse than best dist
-            # if last_dt is None:
-            #     last_dt = dt
-            #     dt *= 0.5
-            # else:
-            #     if new_dist > best_dist:
-            #         last_dt = dt
-            #         dt *= 0.5
-            #     elif new_dist < best_dist:
-            #         last_dt = dt
-            #         dt = last_dt + (dt - last_dt)*0.5
-            #     else: # new_dist == best_dist
-            #         break
+            if last_dt is None:
+                last_dt = dt
+                dt *= 0.5
+            else:
+                if new_dist > best_dist:
+                    last_dt = dt
+                    dt *= 0.5
+                elif new_dist < best_dist:
+                    last_dt = dt
+                    dt = last_dt + (dt - last_dt)*0.5
+            
+            # ---- Determine whether to keep going based on depth
+            depth += 1
+            if depth > max_depth:
+                max_depth_hit = True
 
         # ---- Apply best new angles found through binary search
         self.robot_arm.gui.theta_base.set_value(best_angles[0])
         self.robot_arm.gui.theta_elbow.set_value(best_angles[1])
         self.robot_arm.gui.theta_wrist.set_value(best_angles[2])
 
-        # Use pseudo inverse to solve
-        # to set text
+        print("end_angles:\n", best_angles)
+
+        if found_better_solution:
+            text = "Found better solution"
+        else:
+            text = "No better solution found"
+        self.robot_arm.text = text
         # self.robot_arm.text = "Angle changes: "+str(('{:0.2f}'.format(d_ang_base[0]), \
         #     '{:0.2f}'.format(d_ang_forearm[0]), \
         #     '{:0.2f}'.format(d_ang_wrist[0])))
