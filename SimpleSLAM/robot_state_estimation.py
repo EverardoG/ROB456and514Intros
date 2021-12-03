@@ -30,9 +30,41 @@ class RobotStateEstimation:
         :param ds Door Sensor - has probabilities for door sensor readings
         :param sensor_reading_has_door - contains true/false from door sensor
         """
-        new_probs = np.zeros(len(self.probabilities))
         # begin homework 2 : problem 3
+
+        # Create one-hot arrays for door locations
+        num_bins = len(self.probabilities)
+        door_ind = (np.array(ws.doors)*num_bins - 0.5).astype("int")
+        doors = np.zeros(num_bins)
+        doors[door_ind] = 1
+        not_doors = np.ones(num_bins)
+        not_doors[door_ind] = 0
+
+        # Calculate basic probabilities for either case
+        prob_here = self.probabilities
+        prob_not_here = 1 - prob_here
+        num_doors = len(ws.doors)
+        num_not_doors = num_bins - num_doors
+        prob_door_if_not_here = (num_doors - doors)/(num_bins - 1)
+        prob_no_door_if_not_here = (num_not_doors - not_doors)/(num_bins - 1)
+
+        # Calculate probabilities of where we are based on whether or not sensor detected a door
+        if sensor_reading_has_door:
+            prob_see_door_if_here = ds.prob_see_door_if_door * doors + ds.prob_see_door_if_no_door * not_doors
+            prob_see_door_if_not_here = ds.prob_see_door_if_door * prob_door_if_not_here + ds.prob_see_door_if_no_door * prob_no_door_if_not_here
+
+            probabilities = (prob_see_door_if_here * prob_here) / (prob_see_door_if_here * prob_here + prob_see_door_if_not_here * prob_not_here)
+        else: # sensor reading has no door
+        # new_probs = np.zeros(len(self.probabilities))
+            prob_dont_see_door_if_door = 1 - ds.prob_see_door_if_door
+            prob_dont_see_door_if_no_door = 1 - ds.prob_see_door_if_no_door
+            prob_dont_see_door_if_here = prob_dont_see_door_if_door * doors + prob_dont_see_door_if_no_door * not_doors
+            prob_dont_see_door_if_not_here = prob_dont_see_door_if_door * prob_door_if_not_here + prob_dont_see_door_if_no_door * prob_no_door_if_not_here
+
+            probabilities = (prob_dont_see_door_if_here * prob_here) / (prob_dont_see_door_if_here * prob_here + prob_dont_see_door_if_not_here * prob_not_here)
+     
         # Normalize - all the denominators are the same because they're the sum of all cases
+        self.probabilities = probabilities / np.sum(probabilities)
         # end homework 2 : problem 3
 
     # Distance to wall sensor (state estimation)
@@ -44,8 +76,15 @@ class RobotStateEstimation:
         # Standard deviation of error
         standard_deviation = ws.wall_standard_deviation
         # begin homework 2 : Extra credit
-            # Sample from probability
+        # Calculate a discretized gaussian distribution representing the probability
+        # we get a particular distance reading given we are a particular distance from the wall
+        x = np.linspace(0,1,len(self.probabilities))
+        distribution = np.exp(-(x-dist_reading)**2 / (2*standard_deviation**2) )
+        norm_distribution = distribution/np.sum(distribution)
+        # Multiply prior belief about where robot is by the likelihood given the new information
+        probabilities = self.probabilities * norm_distribution
         # Normalize - all the denominators are the same
+        self.probabilities = probabilities / np.sum(probabilities)
         # end homework 2 : Extra credit
         return self.mean, self.standard_deviation
 
@@ -57,7 +96,26 @@ class RobotStateEstimation:
         # Check probability of left, no, right sum to one
         # Left edge - put move left probability into zero square along with stay-put probability
         # Right edge - put move right probability into last square
+
+        # Calculate what the probabilities would be for each possible action the robot could have taken
+        probabilities_if_actual_move_left = np.zeros(len(self.probabilities))
+        probabilities_if_actual_move_left[0] = np.copy(self.probabilities[0])
+        probabilities_if_actual_move_left[:-1] += self.probabilities[1:]
+
+        probabilities_if_actual_move_right = np.zeros(len(self.probabilities))
+        probabilities_if_actual_move_right[-1] = np.copy(self.probabilities[-1])
+        probabilities_if_actual_move_right[1:] += self.probabilities[:-1]
+
+        probabilities_if_actual_move_stay = np.copy(self.probabilities)
+
+        # Calculated a weighted sum of what the robot COULD have done
+        # weighted by the probability it did that given the command we gave it
+        probabilities = probabilities_if_actual_move_left * rs.prob_move_left_if_left + \
+                        probabilities_if_actual_move_right * rs.prob_move_right_if_left + \
+                        probabilities_if_actual_move_stay * rs.prob_no_move_if_left
+
         # Normalize - sum should be one, except for numerical rounding
+        self.probabilities = probabilities / np.sum(probabilities)
         # end homework 2 problem 4
 
     def update_belief_move_right(self, rs):
@@ -68,7 +126,26 @@ class RobotStateEstimation:
         # Check probability of left, no, right sum to one
         # Left edge - put move left probability into zero square along with stay-put probability
         # Right edge - put move right probability into last square
+        
+        # Calculate what the probabilities would be for each possible action the robot could have taken
+        probabilities_if_actual_move_left = np.zeros(len(self.probabilities))
+        probabilities_if_actual_move_left[0] = np.copy(self.probabilities[0])
+        probabilities_if_actual_move_left[:-1] += self.probabilities[1:]
+
+        probabilities_if_actual_move_right = np.zeros(len(self.probabilities))
+        probabilities_if_actual_move_right[-1] = np.copy(self.probabilities[-1])
+        probabilities_if_actual_move_right[1:] += self.probabilities[:-1]
+
+        probabilities_if_actual_move_stay = np.copy(self.probabilities)
+
+        # Calculated a weighted sum of what the robot COULD have done
+        # weighted by the probability it did that given the command we gave it
+        probabilities = probabilities_if_actual_move_left * rs.prob_move_left_if_right + \
+                        probabilities_if_actual_move_right * rs.prob_move_right_if_right + \
+                        probabilities_if_actual_move_stay * rs.prob_no_move_if_right
+
         # Normalize - sum should be one, except for numerical rounding
+        self.probabilities = probabilities / np.sum(probabilities)
         # end homework 2 problem 4
 
     # Put robot in the middle with a really broad standard deviation
@@ -84,6 +161,8 @@ class RobotStateEstimation:
         :return : mean and standard deviation of my current estimated location """
 
         # begin homework 3 : Problem 2
+        self.mean = self.mean + amount
+        self.standard_deviation = np.sqrt( self.standard_deviation**2 + rs.robot_move_standard_deviation_err**2 )
         # end homework 3 : Problem 2
         return self.mean, self.standard_deviation
 
@@ -94,6 +173,9 @@ class RobotStateEstimation:
         :param dist_reading - distance reading returned"""
 
         # begin homework 3 : Problem 1
+        self.mean = self.mean * ws.wall_standard_deviation**2/(self.standard_deviation**2 + ws.wall_standard_deviation**2) + \
+            dist_reading * self.standard_deviation**2/(self.standard_deviation**2 + ws.wall_standard_deviation**2)
+        self.standard_deviation = np.sqrt( 1/(self.standard_deviation**(-2) + ws.wall_standard_deviation**(-2)) )
         # end homework 3 : Problem 1
         return self.mean, self.standard_deviation
 

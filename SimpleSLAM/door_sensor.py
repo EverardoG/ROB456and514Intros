@@ -40,10 +40,21 @@ class DoorSensor:
         :return:
         """
         # begin homework 2 : problem 1
-        # Flip the coin...
-        # Determine percentage in front of door
+
+        # Robot is in front of door. 
+        if self.is_in_front_of_door(ws, rs):
+            if self.prob_see_door_if_door > np.random.uniform():
+                return True
+            else:
+                return False
+        # Robot is not in front of door
+        else:
+            if self.prob_see_door_if_no_door > np.random.uniform():
+                return True
+            else:
+                return False
+
         # end homework 2 : problem 1
-        return True
 
     # set the probabilities based on the gui
     def set_probabilities(self, in_prob_see_door_if_door, in_prob_see_door_if_not_door):
